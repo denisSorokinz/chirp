@@ -1,15 +1,22 @@
-import { type NextPage } from "next";
+import { GetStaticPaths, GetStaticProps, type NextPage } from "next";
 import Head from "next/head";
 import { SignInButton, useUser } from "@clerk/nextjs";
+import { createServerSideHelpers } from "@trpc/react-query/server";
+import superjson from "superjson";
 
 import { type RouterOutputs, api } from "~/utils/api";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { LoadingPage } from "~/components/loading";
+import toast, { ErrorIcon } from "react-hot-toast";
+import { prisma } from "~/server/db";
+import { appRouter } from "~/server/api/root";
 
 dayjs.extend(relativeTime);
+
+const notify = (msg: string) => toast(`Error: ${msg}`, { icon: <ErrorIcon /> });
 
 const CreatePostWizard = () => {
   const { user } = useUser();
@@ -18,12 +25,20 @@ const CreatePostWizard = () => {
 
   const ctx = api.useContext();
 
-  const { mutate, isLoading: isPosting } = api.posts.create.useMutation({
+  const {
+    mutate,
+    isLoading: isPosting,
+    error: postingError,
+  } = api.posts.create.useMutation({
     onSuccess: () => {
       setInput("");
       void ctx.posts.getAll.invalidate();
     },
   });
+
+  useEffect(() => {
+    if (postingError) notify(postingError.message);
+  }, [postingError]);
 
   console.log(user?.id);
 
